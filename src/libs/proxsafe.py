@@ -1,5 +1,7 @@
+import ufirebase as firebase
 from machine import Pin, PWM
 from hcsr04 import HCSR04
+from utime import sleep
 
 class ProxSafe:
 
@@ -28,6 +30,9 @@ class ProxSafe:
             east_distance <= self.__MINIMAL_DISTANCE or west_distance <= self.__MINIMAL_DISTANCE:
                 self.__buzzer_sensor.freq(self.__FREQUENCY)
                 self.__buzzer_sensor.duty(self.__WORK_CYCLE)
+                firebase.put("Data", north_distance, bg=0)
             else:
                 self.__buzzer_sensor.duty(0)
+
+            sleep(4)
 

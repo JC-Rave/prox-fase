@@ -1,12 +1,18 @@
 import network, time
+import ufirebase as firebase
 from proxsafe import ProxSafe
 
 class Main:
 
+    __URL_FIREBASE = "https://proxsafe-faede-default-rtdb.firebaseio.com/"
+
+
     def __init__(self, ssid, password):
         self.__connect_to_network(ssid, password)
+        self.__config_firebase()
         self.__prox_safe = ProxSafe()
         self.__prox_safe.run()
+
 
     def __connect_to_network(self, ssid, password):
         self.__network = network.WLAN(network.STA_IF)
@@ -24,6 +30,10 @@ class Main:
             else:
                 print(f"Connected to the '{ssid}' network")
                 print("Network data (IP/netmask/gw/DNS):", self.__network.ifconfig())
+
+
+    def __config_firebase(self):
+        firebase.setURL(self.__URL_FIREBASE)
 
 
 Main("my_red", "my_password")
