@@ -76,7 +76,7 @@ class ProxSafe:
 
 
     def __is_crash_occurred(self, front_distance, right_distance, rear_distance, left_distance):
-        return front_distance <= 2 or right_distance <= 2 or rear_distance <= 2 or left_distance <= 2
+        return front_distance <= 5 or right_distance <= 5 or rear_distance <= 5 or left_distance <= 5
 
 
     def __get_occurrence_side(self, front_distance, right_distance, rear_distance, left_distance):
