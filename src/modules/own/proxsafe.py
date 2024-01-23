@@ -1,8 +1,8 @@
+import utime
+import _thread
 import ufirebase as firebase
 from machine import Pin, PWM
 from hcsr04 import HCSR04
-from utime import sleep, time, localtime
-import _thread
 
 class ProxSafe:
 
@@ -50,12 +50,12 @@ class ProxSafe:
             else:
                 self.__buzzer_sensor.duty(0)
 
-            sleep(1)
+            utime.sleep(1)
 
 
     def __insert_proximity_data(self):
         while True:
-            sleep(5)
+            utime.sleep(5)
 
             if len(self.__proximity_data_list):
                 proximity_data_list = self.__proximity_data_list.copy()
@@ -68,7 +68,7 @@ class ProxSafe:
 
 
     def __get_date_time(self):
-        now = localtime(time())
+        now = utime.localtime()
         return {
             "date": f"{now[0]}-{now[1]:02d}-{now[2]:02d}",
             "time": f"{now[3]:02d}:{now[4]:02d}:{now[5]:02d}"
