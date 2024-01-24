@@ -11,7 +11,8 @@ class ProxSafe:
     __FREQUENCY = 261
 
 
-    def __init__(self):
+    def __init__(self, bot_telegram):
+        self.__bot_telegram = bot_telegram
         self.__front_sensor = HCSR04(trigger_pin=27, echo_pin=26)
         self.__right_sensor = HCSR04(trigger_pin=33, echo_pin=32)
         self.__rear_sensor = HCSR04(trigger_pin=5, echo_pin=17)

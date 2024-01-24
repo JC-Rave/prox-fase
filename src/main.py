@@ -4,6 +4,7 @@ import utime
 import _thread
 import ufirebase as firebase
 from machine import RTC
+from bot_telegram import BotTelegram
 from proxsafe import ProxSafe
 
 class Main:
@@ -17,7 +18,8 @@ class Main:
         _thread.start_new_thread(self.__synchronize_rtc, ())
 
         self.__config_firebase()
-        self.__prox_safe = ProxSafe()
+        self.__bot_telegram = BotTelegram()
+        self.__prox_safe = ProxSafe(self.__bot_telegram)
         self.__prox_safe.run()
 
 
