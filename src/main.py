@@ -10,15 +10,18 @@ from proxsafe import ProxSafe
 class Main:
 
     __URL_DATETIME = "http://worldtimeapi.org/api/timezone/America/Bogota"
-    __URL_FIREBASE = "https://proxsafe-faede-default-rtdb.firebaseio.com/"
+    __URL_FIREBASE = "My_firebase"
+    __TOKEN = "my_token"
 
 
     def __init__(self, ssid, password):
         self.__connect_to_network(ssid, password)
+        self.__config_firebase()
         _thread.start_new_thread(self.__synchronize_rtc, ())
 
-        self.__config_firebase()
-        self.__bot_telegram = BotTelegram()
+        self.__bot_telegram = BotTelegram(self.__TOKEN)
+        self.__bot_telegram.turn_on()
+
         self.__prox_safe = ProxSafe(self.__bot_telegram)
         self.__prox_safe.run()
 
