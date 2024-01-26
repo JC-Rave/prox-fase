@@ -6,9 +6,9 @@ En el contexto del desarrollo tecnológico en la industria automotriz, la seguri
 
 ## Autores
 
-- Emanuel Arteaga Moreno. Author, Fellow, IEEE.
-- Jean Rave Rincon. Author.
-- Julio Cesar Cuevas Cardenas. Author, Jr., Member, IEEE.
+- Emanuel Arteaga Moreno
+- Jean Rave Rincon
+- Julio Cesar Cuevas Cardenas.
 
 ## Resumen
 
