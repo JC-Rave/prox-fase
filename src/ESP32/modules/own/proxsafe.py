@@ -1,5 +1,6 @@
-import utime
 import _thread
+import utime
+import urequests
 import ufirebase as firebase
 from machine import Pin, PWM
 from hcsr04 import HCSR04
@@ -11,8 +12,8 @@ class ProxSafe:
     __FREQUENCY = 261
 
 
-    def __init__(self, bot_telegram):
-        self.__bot_telegram = bot_telegram
+    def __init__(self, url_sapcs):
+        self.__url_sapcs = url_sapcs
         self.__front_sensor = HCSR04(trigger_pin=27, echo_pin=26)
         self.__right_sensor = HCSR04(trigger_pin=33, echo_pin=32)
         self.__rear_sensor = HCSR04(trigger_pin=5, echo_pin=17)
@@ -23,10 +24,12 @@ class ProxSafe:
 
     def run(self):
         self.__proximity_data_list = []
+        self.__sapcs_status = "OFF"
+        _thread.start_new_thread(self.__synchronize_sapcs_status, ())
         _thread.start_new_thread(self.__insert_proximity_data, ())
 
         while True:
-            if self.__bot_telegram.get_status_sapcs() == self.__bot_telegram.STATUS_SAPCS_OFF:
+            if self.__sapcs_status != "ON":
                 self.__buzzer_sensor.duty(0)
                 continue # Se salta el ciclo y el sistema no esta encendido
 
@@ -70,6 +73,20 @@ class ProxSafe:
                     print("Recording data...")
                     firebase.put(f"proximity_data/{data["date"]} {data["time"]}", data, bg=0)
                     print(f"Recorded data: {data}\n")
+
+
+    def __synchronize_sapcs_status(self):
+        while True:
+            try:
+                url = self.__url_sapcs + "sapcs_status?timeout=20"
+                response = urequests.get(url)
+
+                data = response.json()
+                response.close()
+
+                self.__sapcs_status = data["sapcs_status"]
+            except Exception as ex:
+                print("Can't get sapcs status", ex)
 
 
     def __get_date_time(self):
