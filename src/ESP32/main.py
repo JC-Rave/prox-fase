@@ -11,6 +11,7 @@ class Main:
     __URL_DATETIME = "http://worldtimeapi.org/api/timezone/America/Bogota"
     __URL_FIREBASE = "My_firebase"
     __URL_SAPCS = "My_api"
+    __CHAT_ID = "My_chat_id"
 
 
     def __init__(self, ssid, password):
@@ -18,7 +19,7 @@ class Main:
         self.__config_firebase()
         _thread.start_new_thread(self.__synchronize_rtc, ())
 
-        self.__prox_safe = ProxSafe(self.__URL_SAPCS)
+        self.__prox_safe = ProxSafe(self.__URL_SAPCS, self.__CHAT_ID)
         self.__prox_safe.run()
 
 

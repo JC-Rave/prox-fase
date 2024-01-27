@@ -7,13 +7,17 @@ from hcsr04 import HCSR04
 
 class ProxSafe:
 
-    __MINIMAL_DISTANCE = 100
+    __MINIMAL_DISTANCE_SEND_MESSAGE = 50
+    __MINIMAL_DISTANCE_ACTIVE_BUZZER = 100
     __WORK_CYCLE = 1023
     __FREQUENCY = 261
 
 
-    def __init__(self, url_sapcs):
+    def __init__(self, url_sapcs, chat_id):
         self.__url_sapcs = url_sapcs
+        self.__chat_id = chat_id
+        self.__message_can_be_sent = True
+
         self.__front_sensor = HCSR04(trigger_pin=27, echo_pin=26)
         self.__right_sensor = HCSR04(trigger_pin=33, echo_pin=32)
         self.__rear_sensor = HCSR04(trigger_pin=5, echo_pin=17)
@@ -38,8 +42,8 @@ class ProxSafe:
             rear_distance = self.__rear_sensor.distance_cm()
             left_distance = self.__left_sensor.distance_cm()
 
-            if front_distance <= self.__MINIMAL_DISTANCE or right_distance <= self.__MINIMAL_DISTANCE or \
-            rear_distance <= self.__MINIMAL_DISTANCE or left_distance <= self.__MINIMAL_DISTANCE:
+            if front_distance <= self.__MINIMAL_DISTANCE_ACTIVE_BUZZER or right_distance <= self.__MINIMAL_DISTANCE_ACTIVE_BUZZER or \
+            rear_distance <= self.__MINIMAL_DISTANCE_ACTIVE_BUZZER or left_distance <= self.__MINIMAL_DISTANCE_ACTIVE_BUZZER:
                 print("Object detected, activating alarm...")
                 self.__buzzer_sensor.freq(self.__FREQUENCY)
                 self.__buzzer_sensor.duty(self.__WORK_CYCLE)
@@ -55,6 +59,9 @@ class ProxSafe:
 
                 self.__proximity_data_list.append(data)
                 print(f"Processed data: {data}\n")
+
+                if self.__is_should_alert_message_sent(front_distance, right_distance, rear_distance, left_distance):
+                    _thread.start_new_thread(self.__send_message, (data,))
             else:
                 self.__buzzer_sensor.duty(0)
 
@@ -103,14 +110,49 @@ class ProxSafe:
 
 
     def __get_occurrence_side(self, front_distance, right_distance, rear_distance, left_distance):
-        if front_distance <= self.__MINIMAL_DISTANCE:
+        if front_distance <= self.__MINIMAL_DISTANCE_ACTIVE_BUZZER:
             return "Delantero"
-        elif right_distance <= self.__MINIMAL_DISTANCE:
+        elif right_distance <= self.__MINIMAL_DISTANCE_ACTIVE_BUZZER:
             return "Derecha"
-        elif rear_distance <= self.__MINIMAL_DISTANCE:
+        elif rear_distance <= self.__MINIMAL_DISTANCE_ACTIVE_BUZZER:
             return "Trasero"
-        elif left_distance <= self.__MINIMAL_DISTANCE:
+        elif left_distance <= self.__MINIMAL_DISTANCE_ACTIVE_BUZZER:
             return "Izquierda"
         else:
             return "Desconocido"
+
+
+    def __is_should_alert_message_sent(self, front_distance, right_distance, rear_distance, left_distance):
+        if self.__is_crash_occurred(front_distance, right_distance, rear_distance, left_distance):
+            self.__message_can_be_sent = True
+
+        if front_distance <= self.__MINIMAL_DISTANCE_SEND_MESSAGE or right_distance <= self.__MINIMAL_DISTANCE_SEND_MESSAGE or \
+        rear_distance <= self.__MINIMAL_DISTANCE_SEND_MESSAGE or left_distance <= self.__MINIMAL_DISTANCE_SEND_MESSAGE:
+
+            if self.__message_can_be_sent:
+                self.__message_can_be_sent = False
+                return True
+
+            return False
+        else:
+            self.__message_can_be_sent = True
+            return False
+
+
+    def __send_message(self, data):
+        print("Sending alert message")
+
+        try:
+            url = self.__url_sapcs + "send_message"
+
+            payload = data.copy()
+            payload["chat_id"] = self.__chat_id
+            response = urequests.post(url, json=payload)
+
+            data = response.json()
+            response.close()
+
+            print("Response:", data)
+        except Exception as ex:
+            print("Message could not be sent:", ex)
 

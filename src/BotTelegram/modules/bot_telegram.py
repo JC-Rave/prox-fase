@@ -4,6 +4,7 @@ import json
 import modules.graphics as graphics
 from firebase_admin import db
 from time import sleep
+from datetime import datetime, timedelta
 
 class BotTelegram:
 
@@ -51,9 +52,13 @@ class BotTelegram:
                 url += f"&reply_markup={json.dumps(reply_markup)}"
 
             response = requests.get(url)
+            data = response.json()
             response.close()
+
+            return data
         except Exception as ex:
             print("Unsent message:", ex)
+            return ex
 
 
     def send_photos(self, chat_id, photo_list):
@@ -226,7 +231,9 @@ class BotTelegram:
         self.send_message(chat_id, text)
 
         firebase = db.reference("proximity_data")
-        data = firebase.get()
+
+        start_date = datetime.now() - timedelta(days=30)
+        data = firebase.order_by_key().start_at(start_date.strftime("%Y-%m-%d")).get()
 
         photo_list = [
             graphics.plot_alerts_per_day(data),
