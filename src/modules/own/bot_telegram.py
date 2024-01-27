@@ -25,10 +25,7 @@ class BotTelegram:
         self.__turn_on = "Encender SAPCS"
         self.__turn_off = "Apagar SAPCS"
         self.__status = "Estado SAPCS"
-        self.__alert_frequency = "Ver día de la semana con mayor frecuencia de alerta"
-        self.__alert_day = "Ver alertas del día"
         self.__alert_history = "Ver hitorico de alertas"
-        self.__alert_seven_days = "Ver alertas de los ultimos 7 días"
 
 
     def __build_command_handlers(self):
@@ -42,10 +39,7 @@ class BotTelegram:
             self.__turn_on: self.__on_sapcs,
             self.__turn_off: self.__off_sapcs,
             self.__status: self.__status_sapcs,
-            self.__alert_frequency: self.__get_alert_frequency,
-            self.__alert_day: self.__get_day_alert_stadistics,
-            self.__alert_seven_days: self.__get_seven_days_alert_stadisctics,
-            self.__alert_history: self.__get_history_alert_stadistics,
+            self.__alert_history: self.__get_history_alert_stadistics
         }
 
 
@@ -123,8 +117,7 @@ class BotTelegram:
         reply_markup = {
             "keyboard": [
                 [self.__turn_on, self.__status, self.__turn_off],
-                [self.__alert_frequency],
-                [self.__alert_day, self.__alert_history, self.__alert_seven_days]
+                [self.__alert_history]
             ],
             "resize_keyboard": False,
             "one_time_keyboard": True
@@ -144,9 +137,8 @@ class BotTelegram:
 
         reply_markup = {
             "keyboard": [
-                [self.__alert_frequency],
-                [self.__alert_day, self.__alert_history, self.__alert_seven_days],
-                [self.__status, self.__turn_off, self.__turn_on]
+                [self.__status, self.__alert_history],
+                [self.__turn_off, self.__turn_on]
             ],
             "resize_keyboard": False,
             "one_time_keyboard": True
@@ -166,10 +158,8 @@ class BotTelegram:
 
         reply_markup = {
             "keyboard": [
-                [self.__turn_on, self.__alert_day],
-                [self.__alert_history, self.__alert_seven_days],
-                [self.__alert_frequency],
-                [self.__status, self.__turn_off]
+                [self.__status, self.__alert_history],
+                [self.__turn_on, self.__turn_off]
             ],
             "resize_keyboard": False,
             "one_time_keyboard": True
@@ -189,9 +179,8 @@ class BotTelegram:
 
         reply_markup = {
             "keyboard": [
-                [self.__turn_on, self.__status, self.__turn_off],
-                [self.__alert_frequency],
-                [self.__alert_day, self.__alert_history, self.__alert_seven_days]
+                [self.__turn_on, self.__turn_off],
+                [self.__alert_history, self.__status]
             ],
             "resize_keyboard": False,
             "one_time_keyboard": True
@@ -200,55 +189,95 @@ class BotTelegram:
         print("SAPCS status is:", self.__sapcs)
         self.send_message(chat_id, text, reply_markup)
 
-    def __get_alert_frequency(self, chat_id):
-        print("Get day of the week with the highest number of alerts")
+    def __get_history_alert_stadistics(self, chat_id):
+        print("Get alert data")
 
-        firebase.getfile("proximity_data", "data.json", bg=True, id=2, cb=(self.__process_data, (chat_id, "data.json")))
-
-        text = "Estoy consultando los registros🗃️, un momento por favor✋"
-
+        text = "Preparando datos📝, un momento por favor✋"
         self.send_message(chat_id, text)
+
+        firebase.get("proximity_data", "data", bg=False, limit=False)
+        self.__process_data(chat_id, firebase.data)
+
 
 
     def __process_data(self, chat_id, data):
-        
+        print("procesando datos\n")
+
+        day_of_week = self.__get_day_of_week(data)
+        estadisticas = self.calcular_estadisticas(data)
+
         reply_markup = {
             "keyboard": [
-                [self.__alert_frequency],
-                [self.__emergency_contact, self.__status],
+                [self.__alert_history, self.__status],
                 [self.__turn_on, self.__turn_off]
             ],
             "resize_keyboard": False,
             "one_time_keyboard": True
         }
 
-
-    def __get_day_alert_stadistics(self, chat_id):
-        pass
-
-    def __get_seven_days_alert_stadisctics(self, chat_id):
-
-        data = firebase.getfile("proximity_data", "data.json", bg=True, id=2)
-        df = pd.DataFrame(data)
-
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
-
-        seven_days_ago = datetime.now() - timedelta(days=7)
-        df_last_seven_days = df[df['timestamp'] >= seven_days_ago]
-
-        day_with_most_events = df_last_seven_days['timestamp'].dt.day_name().mode().values[0]
-        hour_with_most_events = df_last_seven_days['timestamp'].dt.hour.mode().values[0]
-
-        text = f"En los últimos 7 días:\n"
-        text += f"Día con más eventos: {day_with_most_events}\n"
-        text += f"Hora con más eventos: {hour_with_most_events}:00"
-
-        self.send_message(chat_id, text)
-        pass
+        text = f"Total de alertas generadas: {estadisticas["total_alerts"]}"
+        text += f"%0ADía de la semana con mayor frecuencia de alertas: {day_of_week}"
+        # text += f"%0ADía con mas alertas: {estadisticas["dia_con_mas_alertas"]}, con un total de: {estadisticas["total_alertas_dia_mas_alertas"]}"
+        print(text)        
+        self.send_message(chat_id, text, reply_markup)
 
 
-    def __get_history_alert_stadistics(self, chat_id):
-        pass
+    def __get_day_of_week(self, data):
+        alert_count = {}
+        weeks = ["Domingo", "Lunes", "Martes", "Miercoles", "Jueves", "Viernes", "Sabado"]
+
+        for alert in data.values():
+            date_parts = alert['date'].split('-')
+            year, month, day = map(int, date_parts)
+            
+            # 0 es domigo, 6 es sabado
+            day_of_week = (year + year // 4 - year // 100 + year // 400 + (month * 306 + 5) // 10 + (day + 1)) % 7
+
+            # Contar el numero de alertas por dia de la semana
+            if day_of_week in alert_count:
+                alert_count[day_of_week] += 1
+            else:
+                alert_count[day_of_week] = 1
+
+        # Encontrar el dia de la semana con el mayor numero de alertas
+        max_alerts = max(alert_count.values())
+        most_frequent_day = [day for day, count in alert_count.items() if count == max_alerts]
+
+        week = weeks[most_frequent_day[0]]
+        print("Dia:", week)
+        return week
+
+
+    def calcular_estadisticas(self, alertas):
+        # Inicializar diccionario para almacenar estadísticas
+        estadisticas = {
+            "total_alerts": 0,
+            'alertas_por_dia': {},
+            'dia_con_mas_alertas': None,
+            'total_alertas_dia_mas_alertas': 0
+        }
+
+        # Calcular estadísticas por día
+        for alerta in alertas.values():
+            fecha = alerta['date']
+            dia = fecha.split('-')[2]
+
+            # Incrementar el conteo total de alertas
+            estadisticas['total_alerts'] += 1
+
+            # Incrementar el conteo de alertas para el día correspondiente
+            if dia in estadisticas['alertas_por_dia']:
+                estadisticas['alertas_por_dia'][dia] += 1
+            else:
+                estadisticas['alertas_por_dia'][dia] = 1
+
+        # Encontrar el día con más alertas
+        for dia, conteo in estadisticas['alertas_por_dia'].items():
+            if conteo > estadisticas['total_alertas_dia_mas_alertas']:
+                estadisticas['dia_con_mas_alertas'] = dia
+                estadisticas['total_alertas_dia_mas_alertas'] = conteo
+
+        return estadisticas
 
 
     def __handler_not_foud(self, chat_id):

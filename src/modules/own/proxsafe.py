@@ -27,6 +27,7 @@ class ProxSafe:
 
         while True:
             if self.__bot_telegram.get_status_sapcs() == self.__bot_telegram.STATUS_SAPCS_OFF:
+                self.__buzzer_sensor.duty(0)
                 continue # Se salta el ciclo y el sistema no esta encendido
 
             front_distance = self.__front_sensor.distance_cm()
