@@ -2,6 +2,8 @@ import _thread
 import urequests
 import ujson
 import ufirebase as firebase
+import pandas as pd
+from datetime import datetime, timedelta
 
 class BotTelegram:
 
@@ -224,8 +226,24 @@ class BotTelegram:
     def __get_day_alert_stadistics(self, chat_id):
         pass
 
-
     def __get_seven_days_alert_stadisctics(self, chat_id):
+
+        data = firebase.getfile("proximity_data", "data.json", bg=True, id=2)
+        df = pd.DataFrame(data)
+
+        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
+
+        seven_days_ago = datetime.now() - timedelta(days=7)
+        df_last_seven_days = df[df['timestamp'] >= seven_days_ago]
+
+        day_with_most_events = df_last_seven_days['timestamp'].dt.day_name().mode().values[0]
+        hour_with_most_events = df_last_seven_days['timestamp'].dt.hour.mode().values[0]
+
+        text = f"En los últimos 7 días:\n"
+        text += f"Día con más eventos: {day_with_most_events}\n"
+        text += f"Hora con más eventos: {hour_with_most_events}:00"
+
+        self.send_message(chat_id, text)
         pass
 
 
