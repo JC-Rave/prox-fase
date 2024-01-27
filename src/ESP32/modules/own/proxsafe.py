@@ -85,6 +85,7 @@ class ProxSafe:
                 response.close()
 
                 self.__sapcs_status = data["sapcs_status"]
+                print("SAPCS status:", self.__sapcs_status)
             except Exception as ex:
                 print("Can't get sapcs status", ex)
 

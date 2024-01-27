@@ -1,21 +1,41 @@
-from flask import Flask
+import time
+from flask import Flask, request, jsonify
 
 class API:
 
-    def __init__(self):
-        self.app = Flask(__name__)
-        self.app.add_url_rule('/', 'index', self.index)
-        self.app.add_url_rule('/saludo/<string:nombre>', 'saludo', self.saludo)
+    def __init__(self, bot):
+        self.__bot = bot
 
-    def index(self):
-        return '¡Hola, Mundo! Este es mi API.'
+        self.__app = Flask(__name__)
+        self.__app.add_url_rule('/sapcs_status', 'sapcs_status', self.__sapcs_status)
 
-    def saludo(self, nombre):
-        return f'Hola, {nombre}!'
+    def __sapcs_status(self):
+        print("Get SAPCS status")
+        timeout = int(request.args.get('timeout', 20))
+        start_time = time.time()
+
+        while True:
+            if self.__bot.is_status_update():
+                sapcs_status = self.__bot.get_sapcs_status()
+                print("SAPCS status is:", sapcs_status)
+
+                self.__bot.set_status_update(False)
+                return jsonify({
+                    "sapcs_status": sapcs_status
+                })
+
+            end_time = time.time()
+            elapsed_time = end_time - start_time
+
+            if elapsed_time >= timeout:
+                sapcs_status = self.__bot.get_sapcs_status()
+                print("SAPCS status is:", sapcs_status)
+
+                return jsonify({
+                    "sapcs_status": sapcs_status
+                })
+
 
     def run(self):
-        self.app.run(debug=True, host='0.0.0.0')
+        self.__app.run(debug=False)
 
-if __name__ == '__main__':
-    api = API()
-    api.run()

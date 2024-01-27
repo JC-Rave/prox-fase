@@ -15,6 +15,7 @@ class BotTelegram:
         self.__base_url = f"https://api.telegram.org/bot{token}/"
         self.__last_update = 0
         self.__sapcs = self.STATUS_SAPCS_OFF  # Flag para menejar estado del sistema de alerta de proximidad
+        self.__status_update = False
 
         self.__build_keyboard_buttons()
         self.__build_command_handlers()
@@ -71,8 +72,16 @@ class BotTelegram:
             print("Photos could not be sent:", ex)
 
 
-    def get_status_sapcs(self):
+    def get_sapcs_status(self):
         return self.__sapcs
+
+
+    def is_status_update(self):
+        return self.__status_update
+
+
+    def set_status_update(self, status_update):
+        self.__status_update = status_update
 
 
     def turn_on(self):
@@ -147,6 +156,7 @@ class BotTelegram:
         if self.__sapcs == self.STATUS_SAPCS_OFF:
             print("Turning on the SAPCS")
             self.__sapcs = self.STATUS_SAPCS_ON
+            self.__status_update = True
             text = "SAPCS Encendido🟢 con exito😀👌"
         else:
             print("SAPCS is already on")
@@ -169,6 +179,7 @@ class BotTelegram:
         if self.__sapcs == self.STATUS_SAPCS_ON:
             print("Turning off the SAPCS")
             self.__sapcs = self.STATUS_SAPCS_OFF
+            self.__status_update = True
             text = "SAPCS Apagado🔴 con exito☹️"
         else:
             print("SAPCS is already turned off")
