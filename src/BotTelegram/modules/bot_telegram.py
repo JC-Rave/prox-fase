@@ -1,8 +1,9 @@
-import _thread
-import urequests
-import ujson
-import ufirebase as firebase
-import pandas as pd
+import threading
+import requests
+import json
+import modules.graphics as graphics
+from firebase_admin import db
+from time import sleep
 from datetime import datetime, timedelta
 
 class BotTelegram:
@@ -15,6 +16,7 @@ class BotTelegram:
         self.__base_url = f"https://api.telegram.org/bot{token}/"
         self.__last_update = 0
         self.__sapcs = self.STATUS_SAPCS_OFF  # Flag para menejar estado del sistema de alerta de proximidad
+        self.__status_update = False
 
         self.__build_keyboard_buttons()
         self.__build_command_handlers()
@@ -25,10 +27,7 @@ class BotTelegram:
         self.__turn_on = "Encender SAPCS"
         self.__turn_off = "Apagar SAPCS"
         self.__status = "Estado SAPCS"
-        self.__alert_frequency = "Ver día de la semana con mayor frecuencia de alerta"
-        self.__alert_day = "Ver alertas del día"
-        self.__alert_history = "Ver hitorico de alertas"
-        self.__alert_seven_days = "Ver alertas de los ultimos 7 días"
+        self.__graph_alert = "Ver gráficas de alerta"
 
 
     def __build_command_handlers(self):
@@ -42,10 +41,7 @@ class BotTelegram:
             self.__turn_on: self.__on_sapcs,
             self.__turn_off: self.__off_sapcs,
             self.__status: self.__status_sapcs,
-            self.__alert_frequency: self.__get_alert_frequency,
-            self.__alert_day: self.__get_day_alert_stadistics,
-            self.__alert_seven_days: self.__get_seven_days_alert_stadisctics,
-            self.__alert_history: self.__get_history_alert_stadistics,
+            self.__graph_alert: self.__build_alert_graphics
         }
 
 
@@ -53,16 +49,44 @@ class BotTelegram:
         try:
             url = self.__base_url + f"sendMessage?chat_id={chat_id}&text={text}&parse_mode=Markdown"
             if reply_markup:
-                url += f"&reply_markup={ujson.dumps(reply_markup)}"
+                url += f"&reply_markup={json.dumps(reply_markup)}"
 
-            response = urequests.get(url)
+            response = requests.get(url)
+            data = response.json()
             response.close()
+
+            return data
         except Exception as ex:
             print("Unsent message:", ex)
+            return ex
 
 
-    def get_status_sapcs(self):
+    def send_photos(self, chat_id, photo_list):
+        try:
+            url = self.__base_url + "sendPhoto"
+
+            for photo_path in photo_list:
+                with open(photo_path, "rb") as photo:
+                    files = {"photo": photo}
+                    data = {"chat_id": chat_id}
+                    response = requests.post(url, files=files, data=data)
+                    response.raise_for_status()
+
+            print("Photos sent correctly")
+        except Exception as ex:
+            print("Photos could not be sent:", ex)
+
+
+    def get_sapcs_status(self):
         return self.__sapcs
+
+
+    def is_status_update(self):
+        return self.__status_update
+
+
+    def set_status_update(self, status_update):
+        self.__status_update = status_update
 
 
     def turn_on(self):
@@ -73,7 +97,8 @@ class BotTelegram:
                 for update in updates:
                     self.__handle_update(update)
 
-        _thread.start_new_thread(__loop, ())
+        thread = threading.Thread(target=__loop, args=())
+        thread.start()
 
 
     def __get_updates(self):
@@ -85,7 +110,7 @@ class BotTelegram:
 
         try:
             url = self.__base_url + "getUpdates"
-            response = urequests.post(url, json=request_body)
+            response = requests.post(url, json=request_body)
 
             data = response.json()
             response.close()
@@ -123,8 +148,7 @@ class BotTelegram:
         reply_markup = {
             "keyboard": [
                 [self.__turn_on, self.__status, self.__turn_off],
-                [self.__alert_frequency],
-                [self.__alert_day, self.__alert_history, self.__alert_seven_days]
+                [self.__graph_alert]
             ],
             "resize_keyboard": False,
             "one_time_keyboard": True
@@ -137,6 +161,7 @@ class BotTelegram:
         if self.__sapcs == self.STATUS_SAPCS_OFF:
             print("Turning on the SAPCS")
             self.__sapcs = self.STATUS_SAPCS_ON
+            self.__status_update = True
             text = "SAPCS Encendido🟢 con exito😀👌"
         else:
             print("SAPCS is already on")
@@ -144,14 +169,14 @@ class BotTelegram:
 
         reply_markup = {
             "keyboard": [
-                [self.__alert_frequency],
-                [self.__alert_day, self.__alert_history, self.__alert_seven_days],
-                [self.__status, self.__turn_off, self.__turn_on]
+                [self.__status, self.__graph_alert],
+                [self.__turn_off, self.__turn_on]
             ],
             "resize_keyboard": False,
             "one_time_keyboard": True
         }
 
+        sleep(1)
         self.send_message(chat_id, text, reply_markup)
 
 
@@ -159,6 +184,7 @@ class BotTelegram:
         if self.__sapcs == self.STATUS_SAPCS_ON:
             print("Turning off the SAPCS")
             self.__sapcs = self.STATUS_SAPCS_OFF
+            self.__status_update = True
             text = "SAPCS Apagado🔴 con exito☹️"
         else:
             print("SAPCS is already turned off")
@@ -166,15 +192,14 @@ class BotTelegram:
 
         reply_markup = {
             "keyboard": [
-                [self.__turn_on, self.__alert_day],
-                [self.__alert_history, self.__alert_seven_days],
-                [self.__alert_frequency],
-                [self.__status, self.__turn_off]
+                [self.__status, self.__graph_alert],
+                [self.__turn_on, self.__turn_off]
             ],
             "resize_keyboard": False,
             "one_time_keyboard": True
         }
 
+        sleep(1)
         self.send_message(chat_id, text, reply_markup)
 
 
@@ -189,9 +214,8 @@ class BotTelegram:
 
         reply_markup = {
             "keyboard": [
-                [self.__turn_on, self.__status, self.__turn_off],
-                [self.__alert_frequency],
-                [self.__alert_day, self.__alert_history, self.__alert_seven_days]
+                [self.__turn_on, self.__turn_off],
+                [self.__graph_alert, self.__status]
             ],
             "resize_keyboard": False,
             "one_time_keyboard": True
@@ -200,57 +224,41 @@ class BotTelegram:
         print("SAPCS status is:", self.__sapcs)
         self.send_message(chat_id, text, reply_markup)
 
-    def __get_alert_frequency(self, chat_id):
-        print("Get day of the week with the highest number of alerts")
+    def __build_alert_graphics(self, chat_id):
+        print("Building alert graphics...")
 
-        firebase.getfile("proximity_data", "data.json", bg=True, id=2, cb=(self.__process_data, (chat_id, "data.json")))
-
-        text = "Estoy consultando los registros🗃️, un momento por favor✋"
-
+        text = "Preparando datos📝, un momento por favor✋"
         self.send_message(chat_id, text)
 
+        firebase = db.reference("proximity_data")
 
-    def __process_data(self, chat_id, data):
-        
+        start_date = datetime.now() - timedelta(days=30)
+        data = firebase.order_by_key().start_at(start_date.strftime("%Y-%m-%d")).get()
+
+        photo_list = [
+            graphics.plot_alerts_per_day(data),
+            graphics.plot_alerts_by_day_week(data),
+            graphics.plot_vehicle_side(data),
+            graphics.plot_patterns_incidents(data)
+        ]
+
+        self.send_photos(chat_id, photo_list)
+
+
+    def __handler_not_foud(self, chat_id):
+        print("Unknown message")
+
+        text = "Lo siento😖, no puedo interpretar tu mensaje✉️"
+        text += "%0APor favor, selecciona una de las 🔘opciones del teclado⌨️ personalizado"
+
         reply_markup = {
             "keyboard": [
-                [self.__alert_frequency],
-                [self.__emergency_contact, self.__status],
-                [self.__turn_on, self.__turn_off]
+                [self.__turn_on, self.__turn_off],
+                [self.__graph_alert, self.__status]
             ],
             "resize_keyboard": False,
             "one_time_keyboard": True
         }
 
-
-    def __get_day_alert_stadistics(self, chat_id):
-        pass
-
-    def __get_seven_days_alert_stadisctics(self, chat_id):
-
-        data = firebase.getfile("proximity_data", "data.json", bg=True, id=2)
-        df = pd.DataFrame(data)
-
-        df['timestamp'] = pd.to_datetime(df['timestamp'], unit='s')
-
-        seven_days_ago = datetime.now() - timedelta(days=7)
-        df_last_seven_days = df[df['timestamp'] >= seven_days_ago]
-
-        day_with_most_events = df_last_seven_days['timestamp'].dt.day_name().mode().values[0]
-        hour_with_most_events = df_last_seven_days['timestamp'].dt.hour.mode().values[0]
-
-        text = f"En los últimos 7 días:\n"
-        text += f"Día con más eventos: {day_with_most_events}\n"
-        text += f"Hora con más eventos: {hour_with_most_events}:00"
-
-        self.send_message(chat_id, text)
-        pass
-
-
-    def __get_history_alert_stadistics(self, chat_id):
-        pass
-
-
-    def __handler_not_foud(self, chat_id):
-        pass
+        self.send_message(chat_id, text, reply_markup)
 

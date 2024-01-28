@@ -1,17 +1,17 @@
+import _thread
 import network
 import urequests
 import utime
-import _thread
 import ufirebase as firebase
 from machine import RTC
-from bot_telegram import BotTelegram
 from proxsafe import ProxSafe
 
 class Main:
 
     __URL_DATETIME = "http://worldtimeapi.org/api/timezone/America/Bogota"
     __URL_FIREBASE = "My_firebase"
-    __TOKEN = "my_token"
+    __URL_SAPCS = "My_api"
+    __CHAT_ID = "My_chat_id"
 
 
     def __init__(self, ssid, password):
@@ -19,10 +19,7 @@ class Main:
         self.__config_firebase()
         _thread.start_new_thread(self.__synchronize_rtc, ())
 
-        self.__bot_telegram = BotTelegram(self.__TOKEN)
-        self.__bot_telegram.turn_on()
-
-        self.__prox_safe = ProxSafe(self.__bot_telegram)
+        self.__prox_safe = ProxSafe(self.__URL_SAPCS, self.__CHAT_ID)
         self.__prox_safe.run()
 
 
